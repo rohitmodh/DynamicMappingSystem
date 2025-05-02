@@ -1,0 +1,25 @@
+[
+  {
+    "Type": "Touringx.Model.Reservation",
+    "Properties": [
+      "Id",
+      "Customer.Name",
+      "Customer.Address.City",
+      "Customer.Address.PostalCode",
+      "CheckInDate",
+      "CheckOutDate"
+    ]
+  },
+  {
+    "Type": "Google.Reservation",
+    "Properties": [
+      "BookingId",
+      "CustomerName",
+      "City",
+      
+      "AdditionalDetails.Landmark",
+      "ArrivalDate",
+      "DepartureDate"
+    ]
+  }
+]

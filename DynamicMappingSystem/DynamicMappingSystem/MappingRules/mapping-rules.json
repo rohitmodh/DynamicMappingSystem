@@ -1,0 +1,70 @@
+[
+  {
+    "SourceType": "Touringx.Model.Reservation",
+    "TargetType": "Google.Reservation",
+    "PropertyMappings": [
+      {
+        "SourceProperty": "Id",
+        "TargetProperty": "BookingId"
+      },
+      {
+        "SourceProperty": "Customer.Name",
+        "TargetProperty": "CustomerName"
+      },
+      {
+        "SourceProperty": "Customer.Address.City",
+        "TargetProperty": "City"
+      },
+      {
+        "SourceProperty": "Customer.Address.PostalCode",
+        "TargetProperty": "Zip"
+      },
+      {
+        "SourceProperty": "Customer.Address.Landmark",
+        "TargetProperty": "AdditionalDetails.Landmark"
+      },
+      {
+        "SourceProperty": "CheckInDate",
+        "TargetProperty": "ArrivalDate",
+        "CustomConverter": "DateTimeToString"
+      },
+      {
+        "SourceProperty": "CheckOutDate",
+        "TargetProperty": "DepartureDate",
+        "CustomConverter": "DateTimeToString"
+      }
+    ]
+  },
+  {
+    "SourceType": "Google.Reservation",
+    "TargetType": "Touringx.Model.Reservation",
+    "PropertyMappings": [
+      {
+        "SourceProperty": "BookingId",
+        "TargetProperty": "Id"
+      },
+      {
+        "SourceProperty": "CustomerName",
+        "TargetProperty": "Customer.Name"
+      },
+      {
+        "SourceProperty": "City",
+        "TargetProperty": "Customer.Address.City"
+      },
+      {
+        "SourceProperty": "Zip",
+        "TargetProperty": "Customer.Address.PostalCode"
+      },
+      {
+        "SourceProperty": "ArrivalDate",
+        "TargetProperty": "CheckInDate",
+        "CustomConverter": "StringToDateTime"
+      },
+      {
+        "SourceProperty": "DepartureDate",
+        "TargetProperty": "CheckOutDate",
+        "CustomConverter": "StringToDateTime"
+      }
+    ]
+  }
+]
