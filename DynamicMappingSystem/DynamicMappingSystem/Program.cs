@@ -1,29 +1,51 @@
-using DynamicMappingSystem.Converters;
-using DynamicMappingSystem.Mapping;
-using DynamicMappingSystem.Providers;
-using DynamicMappingSystem.Validation;
-using FluentValidation;
-using System;
-using System.Text.Json;
+using DynamicMappingSystem.Application.Interfaces;
+using DynamicMappingSystem.Application.Mapping;
+using DynamicMappingSystem.Application.Validation;
+using DynamicMappingSystem.Configuration;
+using DynamicMappingSystem.Infrastructure.Providers;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.Configure<MappingRulesSettings>(
+    builder.Configuration.GetSection("MappingRules"));
+
+builder.Services.AddSingleton<JsonMappingRuleProvider>(provider =>
+{
+    var settings = provider.GetRequiredService<IOptions<MappingRulesSettings>>().Value;
+    return new JsonMappingRuleProvider(settings.JsonMappingRuleFilePath);
+});
+
+builder.Services.AddSingleton<MongoMappingRuleProvider>();
+
+builder.Services.AddSingleton<IMappingRuleProviderFactory, MappingRuleProviderFactory>();
+
 builder.Services.AddSingleton<IMappingRuleProvider>(provider =>
-    new JsonMappingRuleProvider("MappingRules/mapping-rules.json"));
+{
+    var factory = provider.GetRequiredService<IMappingRuleProviderFactory>();
+    return factory.GetProvider();
+});
 
-builder.Services.AddValidatorsFromAssemblyContaining<ReservationValidator>();
+builder.Services.AddSingleton<JsonFormatConfigProvider>(provider =>
+{
+    var settings = provider.GetRequiredService<IOptions<MappingRulesSettings>>().Value;
+    return new JsonFormatConfigProvider(settings.JsonDataFormatFilePath);
+});
 
-builder.Services.AddScoped<IFormatConfigProvider>(provider =>
-            new JsonFormatConfigProvider("MappingRules/DataFormat.json"));
+builder.Services.AddSingleton<MongoFormatConfigProvider>();
 
-builder.Services.AddScoped(provider =>
-            new MappingConfigService("MappingRules/mapping-rules.json"));
+builder.Services.AddSingleton<IFormatConfigProviderFactory, FormatConfigProviderFactory>();
+
+builder.Services.AddSingleton<IFormatConfigProvider>(provider =>
+{
+    var factory = provider.GetRequiredService<IFormatConfigProviderFactory>();
+    return factory.GetProvider();
+});
 
 builder.Services.AddScoped<IModelValidator, DataFormatValidator>();
 builder.Services.AddScoped<IMapHandler, MapHandler>();
 
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

@@ -1,0 +1,82 @@
+[
+  {
+    "SourceType": "Model.Reservation",
+    "TargetType": "Google.Reservation",
+    "PropertyMappings": [
+      {
+        "SourceProperty": "Id",
+        "TargetProperty": "BookingId"
+      },
+      {
+        "SourceProperty": "Customer.Name",
+        "TargetProperty": "CustomerName"
+      },
+      {
+        "SourceProperty": "Customer.Email",
+        "TargetProperty": "CustomerEmail"
+      },
+      {
+        "SourceProperty": "Customer.Address.City",
+        "TargetProperty": "City"
+      },
+      {
+        "SourceProperty": "Customer.Address.PostalCode",
+        "TargetProperty": "Zip"
+      },
+      {
+        "SourceProperty": "Customer.Address.Landmark",
+        "TargetProperty": "AdditionalDetails.Landmark"
+      },
+      {
+        "SourceProperty": "CheckInDate",
+        "TargetProperty": "ArrivalDate",
+        "CustomConverter": "DateTimeToString"
+      },
+      {
+        "SourceProperty": "CheckOutDate",
+        "TargetProperty": "DepartureDate",
+        "CustomConverter": "DateTimeToString"
+      }
+    ]
+  },
+  {
+    "SourceType": "Google.Reservation",
+    "TargetType": "Model.Reservation",
+    "PropertyMappings": [
+      {
+        "SourceProperty": "BookingId",
+        "TargetProperty": "Id"
+      },
+      {
+        "SourceProperty": "CustomerName",
+        "TargetProperty": "Customer.Name"
+      },
+      {
+        "SourceProperty": "CustomerEmail",
+        "TargetProperty": "Customer.Email"
+      },
+      {
+        "SourceProperty": "City",
+        "TargetProperty": "Customer.Address.City"
+      },
+      {
+        "SourceProperty": "Zip",
+        "TargetProperty": "Customer.Address.PostalCode"
+      },
+      {
+        "SourceProperty": "AdditionalDetails.Landmark",
+        "TargetProperty": "Customer.Address.Landmark"
+      },
+      {
+        "SourceProperty": "ArrivalDate",
+        "TargetProperty": "CheckInDate",
+        "CustomConverter": "StringToDateTime"
+      },
+      {
+        "SourceProperty": "DepartureDate",
+        "TargetProperty": "CheckOutDate",
+        "CustomConverter": "StringToDateTime"
+      }
+    ]
+  }
+]
