@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35931.197
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DynamicMappingSystem", "DynamicMappingSystem\DynamicMappingSystem.csproj", "{AE03BFFB-6864-47B1-8419-680291FA7869}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DynamicMappingSystemTests", "DynamicMappingSystemTests\DynamicMappingSystemTests.csproj", "{2DDA8D22-A503-498B-A5D7-A7BA80548546}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AE03BFFB-6864-47B1-8419-680291FA7869}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AE03BFFB-6864-47B1-8419-680291FA7869}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AE03BFFB-6864-47B1-8419-680291FA7869}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AE03BFFB-6864-47B1-8419-680291FA7869}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2DDA8D22-A503-498B-A5D7-A7BA80548546}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2DDA8D22-A503-498B-A5D7-A7BA80548546}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2DDA8D22-A503-498B-A5D7-A7BA80548546}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2DDA8D22-A503-498B-A5D7-A7BA80548546}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4DFE7D58-6B59-4217-A489-172DD276048B}
+	EndGlobalSection
+EndGlobal

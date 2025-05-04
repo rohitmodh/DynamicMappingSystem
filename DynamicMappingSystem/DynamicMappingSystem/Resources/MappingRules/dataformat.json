@@ -1,0 +1,28 @@
+[
+  {
+    "Type": "Model.Reservation",
+    "Properties": [
+      "Id",
+      "Customer.Name",
+      "Customer.Email",
+      "Customer.Address.City",
+      "Customer.Address.PostalCode",
+      "Customer.Address.Landmark",
+      "CheckInDate",
+      "CheckOutDate"
+    ]
+  },
+  {
+    "Type": "Google.Reservation",
+    "Properties": [
+      "BookingId",
+      "CustomerName",
+      "CustomerEmail",
+      "City",
+      "Zip",
+      "AdditionalDetails.Landmark",
+      "ArrivalDate",
+      "DepartureDate"
+    ]
+  }
+]
