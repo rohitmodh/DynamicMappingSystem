@@ -38,22 +38,27 @@ namespace DynamicMappingSystem.Application.Mapping
             catch (ValidationMappingException validationException)
             {
                 result.Errors.Add(new MappingError { Code = validationException.Code, Message = validationException.Message });
+                HandleError(validationException, sourceType, targetType);
             }
             catch (MappingNotFoundException mappingNotFoundException)
             {
                 result.Errors.Add(new MappingError { Code = mappingNotFoundException.Code, Message = mappingNotFoundException.Message });
+                HandleError(mappingNotFoundException, sourceType, targetType);
             }
             catch (MappingException mappingException)
             {
                 result.Errors.Add(new MappingError { Code = mappingException.Code, Message = mappingException.Message });
+                HandleError(mappingException, sourceType, targetType);
             }
-            catch (ApplicationException applicaionException)
+            catch (ApplicationException applicationException)
             {
-                result.Errors.Add(new MappingError { Code = MappingErrorCodes.PropertyMappingFailed, Message = applicaionException.Message });
+                result.Errors.Add(new MappingError { Code = MappingErrorCodes.PropertyMappingFailed, Message = applicationException.Message });
+                HandleError(applicationException, sourceType, targetType);
             }
             catch (Exception exception)
             {
                 result.Errors.Add(new MappingError { Code = MappingErrorCodes.UnexpectedError, Message = exception.Message });
+                HandleError(exception, sourceType, targetType);
             }
             return result;
         }
