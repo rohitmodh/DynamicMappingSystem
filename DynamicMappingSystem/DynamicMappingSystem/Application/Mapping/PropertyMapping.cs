@@ -17,7 +17,7 @@
         public string TargetProperty { get; set; }
 
         /// <summary>
-        /// Gets or sets the name of the custom converter to be used for the property mapping.
+        /// Gets or sets the name of the custom converter to be used for the property mapping. This is for future use case to make it more robust and extensible.
         /// If null, no custom converter is applied.
         /// </summary>
         public string? CustomConverter { get; set; }

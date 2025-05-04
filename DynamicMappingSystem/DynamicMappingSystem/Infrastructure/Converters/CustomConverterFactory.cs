@@ -4,7 +4,7 @@
     {
         public ICustomConverter GetConverter(string? converterName)
         {
-            return new DefaultConverter(); // Stub, plug custom logic or reflection here
+            return new DefaultConverter(); // We can add some functionlity here to return different converters based on the name
         }
     }
 }

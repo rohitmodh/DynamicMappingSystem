@@ -36,10 +36,10 @@ namespace DynamicMappingSystem.Application.Validation
                         return false;
                     }
                 }
-                else if (currentToken is JArray currentArray && int.TryParse(property, out var index) && currentArray.Count > index)
-                {
-                    currentToken = currentArray[index];
-                }
+                //else if (currentToken is JArray currentArray && int.TryParse(property, out var index) && currentArray.Count > index)
+                //{
+                //    currentToken = currentArray[index];
+                //}
                 else
                 {
                     errorMessage = $"The property: {propertyPath} is missing in the {dataContext} data";
