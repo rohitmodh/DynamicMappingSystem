@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <Folder Include="Application\Config\" />
+    <Folder Include="Mapping\" />
     <Folder Include="Validation\" />
   </ItemGroup>
 

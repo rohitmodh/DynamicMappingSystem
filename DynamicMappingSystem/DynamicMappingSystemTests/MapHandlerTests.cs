@@ -13,7 +13,6 @@ namespace DynamicMappingSystemTests;
 [TestFixture]
 public class MapHandlerTests
 {
-    private Mock<IMappingConfigService> _mockMappingConfigService;
     private Mock<IFormatConfigProvider> _mockFormatConfigProvider;
     private Mock<IMappingRuleProvider> _mockMappingRuleProvider;
     private Mock<IModelValidator> _mockValidator;
@@ -24,7 +23,6 @@ public class MapHandlerTests
     [SetUp]
     public void SetUp()
     {
-        _mockMappingConfigService = new Mock<IMappingConfigService>();
         _mockFormatConfigProvider = new Mock<IFormatConfigProvider>();
         _mockMappingRuleProvider = new Mock<IMappingRuleProvider>();
         _mockValidator = new Mock<IModelValidator>();
