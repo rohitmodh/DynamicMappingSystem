@@ -12,12 +12,13 @@ It's also easy to expand with just a few changes to the code. To make it flexibl
 | Pattern            | Purpose                                                                 |
 |--------------------|-------------------------------------------------------------------------|
 | **Template Method** | Standardizes mapping workflow ( `ValidateInput`, `Map`, `ValidateOutput`) |
-| **Factory / Strategy** | Dynamically select between JSON or MongoDB providers                  |
+| **Factory** | Dynamically select between JSON or MongoDB providers                  |
+| **Strategy** | Strategy for applying specific mapping based on object(flat, array).                  |
 
 
 The system is built to be:
 - **Scalable**: Supports the integration of new models and data formats with minimal changes to the existing codebase.
-- **Maintainable**: Easily extendable to handle future changes, including adding new data formats or mapping rules.
+- **Maintainable**: Easily extendable to handle future changes, including adding new data formats or mapping rules, and mapping logic.
 - **Adaptable**: Designed with flexibility in mind, allowing seamless integration of partner-specific data models without requiring modifications to internal models.
 
 The dynamic mapping system ensures that data can flow smoothly between different systems, using flexible configurations like JSON and MongoDB as sources, and allows custom mappings and transformations when necessary.
@@ -31,6 +32,7 @@ The system maps data between different structured JSON formats using external co
 - **Rules** to transform the source data into the target format.
 - **Checks** to ensure input and output JSON match format schemas.
 - **Extensibility** to add new formats and systems (such as MongoDB, Amazon S3, Azure Blob).
+- **Extensibility** to add mapping logic to support mapping different objects that are not yet supported.
 - **Tests** to verify source/target validation and mapping accuracy.
 
 - Follows a layered architecture:
@@ -40,6 +42,7 @@ The system maps data between different structured JSON formats using external co
 - The core mapping engine is driven by the **Template Method Pattern** via `BaseMapHandler`.
 - Mapping configuration sources are injected dynamically using **Factory Pattern**, depending on environment or preference.
 - The system accepts **pure JSON input** and produces **JSON output**, avoiding any dependency on internal data models.
+- The mapping logic may grow in future, to support other objects. To support this, the mapping engine implements different strategies using **Strategy Pattern**.
 
 ---
 
@@ -52,6 +55,10 @@ The system maps data between different structured JSON formats using external co
 ### Validation Engine
 - Validates data according to rules defined for both the source and target models.
 - Ensures that any invalid data is flagged before further processing.
+
+### Strategy Pattern For Different Object Type Mapping:
+-Strategy to dynamically select and apply the correct mapping logic based on the structure of the input data
+and mapping rules, enabling the system to handle different combinations for Flat and array objects.
 
 ### Factory Pattern for Data Providers
 - A factory that selects between **JSON** and **MongoDB**-based providers based on configuration.
@@ -98,6 +105,7 @@ The system maps data between different structured JSON formats using external co
 ### 🛠 **Interfaces (Application.Interfaces)**
 - **IMapHandler**: Defines the method for handling the mapping of data between different data models.
 - **IFormatConfigProvider**: Fetches format definitions (e.g., `dataformat.json`) for validation purposes.
+- **IMappingStrategy**: Represents a strategy interface for applying specific types of property mappings.
 - **IFormatConfigProviderFactory**: Resolves the appropriate data format provider based on the format type (e.g., JSON, Mongo).
 - **IMappingRuleProvider**: Defines the contract for all mapping providers. A provider is responsible for retrieving the mapping rules from the data source (JSON, MongoDB, etc.).
   - **Key Methods**:
@@ -111,6 +119,10 @@ The system maps data between different structured JSON formats using external co
 - **MappingNotFoundException**: Thrown when mapping rules for the given source/target type are missing.
 - **ValidationMappingException**: Thrown when data validation fails according to the format rules mentioned in `dataformat.json`.
 
+### Strategy (Infrastructure.Strategy)
+- Multiple Strategies for handling mappings from a JSON object to another JSON object. Like BookingId -> id, Name[]  -> Guest[*].Name etc.
+This provides a clean and extendible system to support other objects in the future.
+
 ### 🔑 **Rules (Domain.Rules)**
 - **MapperRule**: Represents an individual rule entry from `mappingrules.json`, including source/target property names and a list of property mappings.
 - **MappingErrorCodes**: Central location for defining and maintaining error code constants, such as:
@@ -123,6 +135,9 @@ The system maps data between different structured JSON formats using external co
     - `GetMappingRules()`: Reads mapping rules from a JSON file and deserializes them into an internal structure.
 - **MongoFormatConfigProvider**: Similar to `JsonFormatConfigProvider`, but extends functionality to support MongoDB-based configuration sources.
 - **MongoMappingRuleProvider**: Implements the `IMappingProvider` interface to retrieve mapping rules from a MongoDB source, making the system extensible.
+
+### Map Handler Test Cases (DynamicMappingSystem.Tests)
+-This test suite verifies the functionality of the MapHandler, ensuring correct data transformation across various mapping scenarios. The tests also cover edge cases such as missing mapping rules, format definitions, and invalid inputs, ensuring robustness and reliability of the system.
 
 ### 📂 **Configuration Files (Resources.MappingRules)**
 - **dataformat.json**: Used to validate the source data before mapping and the target data after mapping has been completed.
@@ -276,17 +291,19 @@ All registered validators will automatically run during the `ValidateInput` and 
 
 ## ⚠️ Assumptions
 
-- **Flat or Simple Nested Structures Only**  
-  The system assumes that all source and target properties follow flat or single-level nested paths  
-  (e.g., `Customer.Name`, `Customer.Address.City`).
+- **Flat or Simple Nested Structures with Array/List**  
+  The system assumes that all source and target properties follow flat or single-level nested paths, or an 
+  array object 
+  (e.g., `Customer.Name`, `Customer.Address.City`, `"Guests": [{ "Name": "John Doe", "Age": 35 },{ "Name": 
+  "Jane Roe", "Age": 30 }]`).
 
 - **Valid and Pre-validated JSON Input**  
   It is assumed that incoming JSON conforms to expected structural conventions.  
   Unless a specific validator is implemented, the system verifies the existence of fields—but not their data type.
 
 - **Property Paths Are Dot-Separated**  
-  Mapping rules and format definitions use dot-separated paths to access nested properties (e.g., `Parent.Child.Property`).  
-  This aligns with `JObject.SelectToken` behavior.
+  Mapping rules and format definitions use dot-separated paths to access nested properties (e.g., `Parent.Child.Property`) and support array indexing using wildcard notation (e.g., `Guest[*].Name`). This structure aligns with `JObject.SelectToken` to allow accurate and flexible data traversal and transformation.
+
 
 - **Data Providers Are Configured for Extensibility**  
   Both JSON and MongoDB are pre-configured as data providers.  
@@ -305,12 +322,8 @@ All registered validators will automatically run during the `ValidateInput` and 
   There is currently no user interface for creating, editing, or validating mapping rules.
 
 - **No Recursive Object Handling**  
-  The system does not support recursive or deeply nested object graphs.  
-  Property paths must follow flat or shallow dot notation only.
+  Mapping rules and format definitions support dot-separated paths for accessing nested properties (e.g., `Parent.Child.Property`) and array handling using wildcard notation (e.g., `Guest[*].Name`). While the system handles nested objects and arrays effectively, it intentionally avoids supporting deeply recursive or highly nested object graphs (e.g., `A.B.C.D.E.F.G`) to maintain clarity, performance, and predictability.
 
-- **No Support for Arrays or Collections**  
-  Mapping of arrays or collections (e.g., multiple customers or addresses) is not currently supported.  
-  Only single-object hierarchies are handled.
 
 --
 
@@ -319,7 +332,6 @@ All registered validators will automatically run during the `ValidateInput` and 
 - Unit tests are included for:
   - ✅ Input and output validation
   - ✅ Mapping rule execution
-  - ✅ Configuration provider selection
 
 - Built using:
   - [`NUnit`](https://nunit.org/) — test framework
