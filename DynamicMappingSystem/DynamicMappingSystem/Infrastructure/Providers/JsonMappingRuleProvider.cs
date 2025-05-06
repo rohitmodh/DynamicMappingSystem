@@ -13,7 +13,6 @@ namespace DynamicMappingSystem.Infrastructure.Providers
     /// </summary>
     public class JsonMappingRuleProvider : IMappingRuleProvider
     {
-        private readonly string _filePath;
         private readonly Dictionary<string, List<PropertyMapping>> _mappingConfigurations;
 
         /// <summary>

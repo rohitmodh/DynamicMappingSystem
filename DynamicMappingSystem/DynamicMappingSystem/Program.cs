@@ -3,12 +3,20 @@ using DynamicMappingSystem.Application.Mapping;
 using DynamicMappingSystem.Application.Validation;
 using DynamicMappingSystem.Configuration;
 using DynamicMappingSystem.Infrastructure.Providers;
+using DynamicMappingSystem.Infrastructure.Strategy;
 using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<MappingRulesSettings>(
     builder.Configuration.GetSection("MappingRules"));
+
+builder.Services.AddSingleton<IMappingStrategy, ArrayToArrayObjectMappingStrategy>();
+builder.Services.AddSingleton<IMappingStrategy, ArrayToFlatObjectMappingStrategy>();
+builder.Services.AddSingleton<IMappingStrategy, FlatToArrayObjectMappingStrategy>();
+builder.Services.AddSingleton<IMappingStrategy, FlatToFlatObjectMappingStrategy>();
+
+builder.Services.AddSingleton<MappingEngine>();
 
 builder.Services.AddSingleton<JsonMappingRuleProvider>(provider =>
 {

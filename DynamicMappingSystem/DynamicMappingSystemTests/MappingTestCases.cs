@@ -148,5 +148,33 @@ namespace DynamicMappingSystemTests
                 ).SetName("OutputValidationFails_MissingField");
             }
         }
+
+        public static IEnumerable<TestCaseData> MappingSuccessCasesArrayObjectTestCases()
+        {
+            yield return new TestCaseData(
+                JObject.Parse(@"{
+                    'Names': ['John', 'Jane'],
+                    'Emails': ['john@example.com', 'jane@example.com'],
+                    'Cities': ['London', 'New York']
+                }"),
+                "Model.Reservation",  // Source type
+                "Google.Reservation",  // Target type
+                JObject.Parse(@"{
+                    'People': [
+                        {
+                            'Name': 'John',
+                            'Email': 'john@example.com',
+                            'City': 'London'
+                        },
+                        {
+                            'Name': 'Jane',
+                            'Email': 'jane@example.com',
+                            'City': 'New York'
+                        }
+                    ]
+                }")
+            ).SetName("ValidArrayMapping_ShouldReturnMappedResult");
+        }
+
     }
 }

@@ -8,6 +8,14 @@
         "TargetProperty": "BookingId"
       },
       {
+        "SourceProperty": "CheckInDate",
+        "TargetProperty": "ArrivalDate"
+      },
+      {
+        "SourceProperty": "CheckOutDate",
+        "TargetProperty": "DepartureDate"
+      },
+      {
         "SourceProperty": "Customer.Name",
         "TargetProperty": "CustomerName"
       },
@@ -27,15 +35,21 @@
         "SourceProperty": "Customer.Address.Landmark",
         "TargetProperty": "AdditionalDetails.Landmark"
       },
+
       {
-        "SourceProperty": "CheckInDate",
-        "TargetProperty": "ArrivalDate",
-        "CustomConverter": "DateTimeToString"
+        "SourceProperty": "Guests[*].Name",
+        "TargetProperty": "Guest.Names",
+        "IsCollection": true
       },
       {
-        "SourceProperty": "CheckOutDate",
-        "TargetProperty": "DepartureDate",
-        "CustomConverter": "DateTimeToString"
+        "SourceProperty": "Guests[*].PhoneNumber",
+        "TargetProperty": "Guest.PhoneNumbers",
+        "IsCollection": true
+      },
+      {
+        "SourceProperty": "Guests[*].RoomNumber",
+        "TargetProperty": "Guest.RoomNumbers",
+        "IsCollection": true
       }
     ]
   },
@@ -76,7 +90,24 @@
         "SourceProperty": "DepartureDate",
         "TargetProperty": "CheckOutDate",
         "CustomConverter": "StringToDateTime"
+      },
+      {
+        "SourceProperty": "Guest.Names",
+        "TargetProperty": "Guests[*].Name",
+        "IsCollection": true
+      },
+      {
+        "SourceProperty": "Guest.PhoneNumbers",
+        "TargetProperty": "Guests[*].PhoneNumber",
+        "IsCollection": true
+      },
+      {
+        "SourceProperty": "Guest.RoomNumbers",
+        "TargetProperty": "Guests[*].RoomNumber",
+        "IsCollection": true
       }
     ]
   }
+
 ]
+

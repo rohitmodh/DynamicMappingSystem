@@ -1,6 +1,7 @@
 ﻿using DynamicMappingSystem.Application.Interfaces;
 using DynamicMappingSystem.Domain.Exceptions;
 using DynamicMappingSystem.Domain.Rules;
+using DynamicMappingSystem.Infrastructure.Strategy;
 using Newtonsoft.Json.Linq;
 
 namespace DynamicMappingSystem.Application.Mapping
@@ -13,6 +14,7 @@ namespace DynamicMappingSystem.Application.Mapping
         private readonly IMappingRuleProvider _mappingRuleProvider;
         private readonly IEnumerable<IModelValidator> _validators;
         private readonly IFormatConfigProvider _formatConfigProvider;
+        private readonly MappingEngine _mappingEngine;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MapHandler"/> class.
@@ -20,13 +22,16 @@ namespace DynamicMappingSystem.Application.Mapping
         /// <param name="mappingRuleProvider">Provider for mapping rules between source and target types.</param>
         /// <param name="validators">Collection of validators for input/output data.</param>
         /// <param name="formatConfigProvider">Provider for data format configuration.</param>
+        /// <param name="mappingEngine">Mapping engine instance for choosing strategy.</param>
         public MapHandler(IMappingRuleProvider mappingRuleProvider,
-            IEnumerable<IModelValidator> validators,
-            IFormatConfigProvider formatConfigProvider)
+                          IEnumerable<IModelValidator> validators,
+                          IFormatConfigProvider formatConfigProvider,
+                          MappingEngine mappingEngine)
         {
             _mappingRuleProvider = mappingRuleProvider;
             _validators = validators;
             _formatConfigProvider = formatConfigProvider;
+            _mappingEngine = mappingEngine;
         }
 
         /// <summary>
@@ -46,35 +51,21 @@ namespace DynamicMappingSystem.Application.Mapping
             }
 
             var mappings = _mappingRuleProvider.GetPropertyMappings(sourceType, targetType);
-
             if (mappings == null || !mappings.Any())
             {
                 throw new MappingNotFoundException(code: MappingErrorCodes.MappingRuleNotFound, message: $"No mappings found for {sourceType} → {targetType}");
             }
 
-            var result = new JObject();
-
-            foreach (var mapping in mappings)
+            try
             {
-                var value = GetPropertyValue(inputData, mapping.SourceProperty)
-                    ?? throw new MappingException(
-                        code: MappingErrorCodes.MissingSourceProperty, message: $"Source property '{mapping.SourceProperty}' is missing in source.");
-
-                try
-                {
-                    SetPropertyValue(result, mapping.TargetProperty, value);
-                }
-                catch (Exception ex)
-                {
-                    throw new MappingException(
-                        code: MappingErrorCodes.SetTargetPropertyFailed, message: $"Failed to set target property '{mapping.TargetProperty}': {ex.Message}"
-                    );
-                }
+                     return _mappingEngine.Map(mappings, inputData);
             }
-
-            return result;
+            catch (Exception ex)
+            {
+                throw new MappingException(MappingErrorCodes.PropertyMappingFailed, $"Mapping failed: {ex.Message}");
+            }
         }
-
+        
         /// <summary>
         /// Validates the input data against the expected format for the specified source type.
         /// </summary>
@@ -105,6 +96,17 @@ namespace DynamicMappingSystem.Application.Mapping
         }
 
         /// <summary>
+        /// Handles exceptions thrown during mapping and logs errors to the console.
+        /// </summary>
+        /// <param name="ex">The exception thrown during mapping.</param>
+        /// <param name="sourceType">Source type involved in the mapping.</param>
+        /// <param name="targetType">Target type involved in the mapping.</param>
+        protected override void HandleError(Exception ex, string sourceType, string targetType)
+        {
+            Console.Error.WriteLine($"[ERROR] Mapping {sourceType} → {targetType} failed: {ex.Message}");
+        }
+
+        /// <summary>
         /// Validates a JObject's structure and content based on format configuration.
         /// </summary>
         /// <param name="data">The JObject to validate.</param>
@@ -119,7 +121,7 @@ namespace DynamicMappingSystem.Application.Mapping
 
             var dataContext = isInput ? "source" : "target";
 
-            foreach (var propertyPath in format.Properties)
+            foreach (var propertyPath in format.Properties.Where(p => !p.Contains("[*]")))
             {
                 foreach (var validator in _validators)
                 {
@@ -130,89 +132,148 @@ namespace DynamicMappingSystem.Application.Mapping
                     }
                 }
             }
-
-            var allowedPaths = format.Properties.ToHashSet();
-            ValidateExtraProperties(data, allowedPaths, dataContext);
+            ValidateArrayStructure(data, format.Properties, dataContext);
+            var allowedPaths = ExpandWildcards(format.Properties, data).ToHashSet();
         }
 
         /// <summary>
-        /// Handles exceptions thrown during mapping and logs errors to the console.
+        /// Validates an array structure based on format configuration for missing / extra properties.
         /// </summary>
-        /// <param name="ex">The exception thrown during mapping.</param>
-        /// <param name="sourceType">Source type involved in the mapping.</param>
-        /// <param name="targetType">Target type involved in the mapping.</param>
-        protected override void HandleError(Exception ex, string sourceType, string targetType)
+        /// <param name="data">The JObject to validate.</param>
+        /// <param name="expectedPaths">path to check in JObject</param>
+        /// <param name="context">True if validating input data, false if output.</param>
+        /// <exception cref="ValidationMappingException">Thrown when validation fails.</exception>
+        private static void ValidateArrayStructure(JObject data, IEnumerable<string> expectedPaths, string context)
         {
-            Console.Error.WriteLine($"[ERROR] Mapping {sourceType} → {targetType} failed: {ex.Message}");
-        }
+            var groupedPaths = expectedPaths
+                .Where(p => p.Contains("[*]"))
+                .GroupBy(p => p.Split(new[] { "[*]." }, StringSplitOptions.None)[0]); // e.g., Guests
 
-        /// <summary>
-        /// Retrieves a property value from a JObject using a dot-separated path.
-        /// </summary>
-        /// <param name="obj">JObject to query.</param>
-        /// <param name="path">Dot-separated path to the property.</param>
-        /// <returns>The property value as a JToken, or null if not found.</returns>
-        private static JToken? GetPropertyValue(JObject obj, string path)
-        {
-            var token = obj.SelectToken(path);
-            return token;
-        }
-
-        /// <summary>
-        /// Sets a property value in a JObject using a dot-separated path. Creates nested objects if needed.
-        /// </summary>
-        /// <param name="obj">The JObject to modify.</param>
-        /// <param name="path">Dot-separated path where the value should be set.</param>
-        /// <param name="value">The value to set.</param>
-        private static void SetPropertyValue(JObject obj, string path, JToken value)
-        {
-            var parts = path.Split('.');
-            JObject current = obj;
-
-            for (int i = 0; i < parts.Length - 1; i++)
+            foreach (var group in groupedPaths)
             {
-                if (current[parts[i]] == null)
+                var basePath = group.Key; // "Guests"
+                var properties = group.Select(p => p.Split(new[] { "[*]." }, StringSplitOptions.None)[1]).ToList();
+
+                var arrayToken = data.SelectToken(basePath);
+
+                if (arrayToken is not JArray array)
                 {
-                    current[parts[i]] = new JObject();
+                    throw new ValidationMappingException(MappingErrorCodes.ValidationFailed,
+                        $"Expected array at path '{basePath}' in {context} data.");
                 }
-                current = (JObject)current[parts[i]]!;
+
+                for (int i = 0; i < array.Count; i++)
+                {
+                    var item = array[i] as JObject;
+                    if (item == null)
+                    {
+                        throw new ValidationMappingException(MappingErrorCodes.ValidationFailed,
+                            $"Expected object at '{basePath}[{i}]' in {context} data.");
+                    }
+
+                    var itemProps = item.Properties().Select(p => p.Name).ToHashSet();
+
+                    // Check for missing properties
+                    foreach (var expectedProp in properties)
+                    {
+                        if (!itemProps.Contains(expectedProp))
+                        {
+                            throw new ValidationMappingException(MappingErrorCodes.ValidationFailed,
+                                $"Missing property '{expectedProp}' in '{basePath}[{i}]' in {context} data.");
+                        }
+                    }
+
+                    // Check for extra properties
+                    foreach (var actualProp in itemProps)
+                    {
+                        if (!properties.Contains(actualProp))
+                        {
+                            throw new ValidationMappingException(MappingErrorCodes.ValidationFailed,
+                                $"Unexpected property '{actualProp}' in '{basePath}[{i}]' in {context} data.");
+                        }
+                    }
+                }
             }
 
-            current[parts.Last()] = value;
         }
 
         /// <summary>
-        /// Validates that there are no unexpected properties in the provided data.
+        /// Expands wildcard array paths (e.g., "Guests[*].Name") into explicit paths with indices
+        /// (e.g., "Guests[0].Name", "Guests[1].Name") based on the actual data in the provided <paramref name="data"/>.
         /// </summary>
-        /// <param name="root">The JObject to check for unexpected properties.</param>
-        /// <param name="allowedPaths">Set of allowed property paths.</param>
-        /// <param name="context">Context string for error messages ("source" or "target").</param>
-        /// <exception cref="ValidationMappingException">Thrown when unexpected properties are found.</exception>
-        private static void ValidateExtraProperties(JObject root, HashSet<string> allowedPaths, string context)
+        /// <param name="paths">A collection of JSON paths, potentially containing wildcard array references.</param>
+        /// <param name="data">The source <see cref="JObject"/> used to determine the array lengths for expansion.</param>
+        /// <returns>
+        /// A collection of expanded JSON paths with wildcards replaced by explicit indices,
+        /// based on the structure of the input <paramref name="data"/>.
+        /// </returns>
+        private static IEnumerable<string> ExpandWildcards(IEnumerable<string> paths, JObject data)
         {
-            var stack = new Stack<(JToken token, string path)>();
-            stack.Push((root, ""));
+            var expanded = new List<string>();
 
-            while (stack.Count > 0)
+            foreach (var path in paths)
             {
-                var (token, path) = stack.Pop();
-
-                if (token.Type == JTokenType.Object)
+                if (!path.Contains("[*]"))
                 {
-                    foreach (var prop in ((JObject)token).Properties())
+                    expanded.Add(path);
+                    continue;
+                }
+
+                var segments = path.Split('.');
+                ExpandPath(data, segments, 0, "", expanded);
+            }
+
+            return expanded;
+        }
+
+        /// <summary>
+        /// Recursively expands a JSON path containing wildcard segments (e.g., "[*]") into concrete paths
+        /// with explicit array indices, based on the structure of the provided <paramref name="token"/>.
+        /// </summary>
+        /// <param name="token">The current JSON token being examined in the recursion.</param>
+        /// <param name="segments">An array of path segments split from the original wildcard path.</param>
+        /// <param name="index">The current segment index being processed.</param>
+        /// <param name="currentPath">The progressively built path as recursion proceeds.</param>
+        /// <param name="results">A list of fully expanded paths accumulated during recursion.</param>
+        private static void ExpandPath(JToken token, string[] segments, int index, string currentPath, List<string> results)
+        {
+            if (index >= segments.Length)
+            {
+                results.Add(currentPath.Trim('.'));
+                return;
+            }
+
+            var segment = segments[index];
+
+            if (segment == "[*]")
+            {
+                if (token is JArray array)
+                {
+                    for (int i = 0; i < array.Count; i++)
                     {
-                        var fullPath = string.IsNullOrEmpty(path) ? prop.Name : $"{path}.{prop.Name}";
-                        stack.Push((prop.Value, fullPath));
+                        ExpandPath(array[i], segments, index + 1, $"{currentPath}[{i}].", results);
                     }
                 }
-                else
+            }
+            else if (segment.Contains("[*]"))
+            {
+                var collectionKey = segment.Split(new[] { "[*]" }, StringSplitOptions.None)[0];
+                var childToken = token[collectionKey];
+
+                if (childToken is JArray array)
                 {
-                    if (!allowedPaths.Contains(path))
+                    for (int i = 0; i < array.Count; i++)
                     {
-                        throw new ValidationMappingException(
-                            MappingErrorCodes.ValidationFailed,
-                            $"Unexpected property: {path} found in {context} data.");
+                        ExpandPath(array[i], segments, index + 1, $"{currentPath}{collectionKey}[{i}].", results);
                     }
+                }
+            }
+            else
+            {
+                var nextToken = token[segment];
+                if (nextToken != null)
+                {
+                    ExpandPath(nextToken, segments, index + 1, $"{currentPath}{segment}.", results);
                 }
             }
         }

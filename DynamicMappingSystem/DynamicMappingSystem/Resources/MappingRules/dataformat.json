@@ -9,7 +9,10 @@
       "Customer.Address.PostalCode",
       "Customer.Address.Landmark",
       "CheckInDate",
-      "CheckOutDate"
+      "CheckOutDate",
+      "Guests[*].Name",
+      "Guests[*].PhoneNumber",
+      "Guests[*].RoomNumber"
     ]
   },
   {
@@ -22,7 +25,10 @@
       "Zip",
       "AdditionalDetails.Landmark",
       "ArrivalDate",
-      "DepartureDate"
+      "DepartureDate",
+      "Guest.Names",
+      "Guest.PhoneNumbers",
+      "Guest.RoomNumbers"
     ]
   }
 ]

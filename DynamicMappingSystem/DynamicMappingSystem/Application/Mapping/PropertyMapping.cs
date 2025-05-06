@@ -21,5 +21,10 @@
         /// If null, no custom converter is applied.
         /// </summary>
         public string? CustomConverter { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the source property is a collection.
+        /// </summary>
+        public bool? IsCollection { get; set; }
     }
 }

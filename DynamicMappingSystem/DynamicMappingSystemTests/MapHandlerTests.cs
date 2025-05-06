@@ -7,17 +7,20 @@ using DynamicMappingSystem.Domain.Exceptions;
 using DynamicMappingSystem.Domain.Rules;
 using DynamicMappingSystem.Application.Mapping;
 using DynamicMappingSystem.Application.Interfaces;
+using DynamicMappingSystem.Infrastructure.Strategy;
 
 namespace DynamicMappingSystemTests;
 
 [TestFixture]
 public class MapHandlerTests
 {
+    private List<IMappingStrategy> _strategies;
     private Mock<IFormatConfigProvider> _mockFormatConfigProvider;
     private Mock<IMappingRuleProvider> _mockMappingRuleProvider;
     private Mock<IModelValidator> _mockValidator;
     private Mock<IMapHandler> _mockMapHandler;
 
+    private Mock<MappingEngine> _mockMappingEngine;
     private MapHandler _mapHandler;
 
     [SetUp]
@@ -27,11 +30,21 @@ public class MapHandlerTests
         _mockMappingRuleProvider = new Mock<IMappingRuleProvider>();
         _mockValidator = new Mock<IModelValidator>();
         _mockMapHandler = new Mock<IMapHandler>();
+        _mockMappingEngine = new Mock<MappingEngine>();
 
+        _strategies =
+        [
+            new FlatToFlatObjectMappingStrategy(),
+            new ArrayToArrayObjectMappingStrategy(),
+            new ArrayToFlatObjectMappingStrategy(),
+            new FlatToArrayObjectMappingStrategy()
+        ];
+        
         _mapHandler = new MapHandler(
             _mockMappingRuleProvider.Object,
-            new List<IModelValidator> { _mockValidator.Object },
-            _mockFormatConfigProvider.Object
+            [new DataFormatValidator()],
+            _mockFormatConfigProvider.Object,
+            new MappingEngine(_strategies)
         );
     }
 
@@ -139,6 +152,78 @@ public class MapHandlerTests
             });
     }
 
+    private void SetupFormatConfigProviderMockForArrayObject()
+    {
+        var formatJson = @"
+    [
+        {
+            ""Type"": ""Model.Reservation"",
+            ""Properties"": [
+                ""Names"",
+                ""Emails"",
+                ""Cities""
+            ]
+        },
+        {
+            ""Type"": ""Google.Reservation"",
+            ""Properties"": [
+                ""People[*].Name"",
+                ""People[*].Email"",
+                ""People[*].City""
+            ]
+        }
+    ]";
+
+        var formatList = JsonSerializer.Deserialize<List<DataFormatDefinition>>(formatJson)!;
+
+        _mockFormatConfigProvider
+            .Setup(x => x.GetFormat(It.IsAny<string>()))
+            .Returns((string type) =>
+            {
+                var format = formatList.FirstOrDefault(f => f.Type == type);
+                if (format == null)
+                {
+                    throw new MappingException(
+                        code: MappingErrorCodes.MissingFormat,
+                        message: $"Format definition not found for type '{type}'"
+                    );
+                }
+                return format;
+            });
+    }
+
+    private void SetupMappingRuleProviderMockForArrayObject()
+    {
+        var mappingJson = @"
+    [
+        {
+            ""SourceType"": ""Model.Reservation"",
+            ""TargetType"": ""Google.Reservation"",
+            ""PropertyMappings"": [
+                { ""SourceProperty"": ""Names"", ""TargetProperty"": ""People[*].Name"" },
+                { ""SourceProperty"": ""Emails"", ""TargetProperty"": ""People[*].Email"" },
+                { ""SourceProperty"": ""Cities"", ""TargetProperty"": ""People[*].City"" }
+            ]
+        }
+    ]";
+
+        var rules = JsonSerializer.Deserialize<List<MapperRule>>(mappingJson)!;
+
+        _mockMappingRuleProvider
+            .Setup(x => x.GetPropertyMappings(It.IsAny<string>(), It.IsAny<string>()))
+            .Returns((string sourceType, string targetType) =>
+            {
+                var rule = rules.FirstOrDefault(r => r.SourceType == sourceType && r.TargetType == targetType);
+                if (rule == null)
+                {
+                    throw new MappingException(
+                        code: MappingErrorCodes.MappingRuleNotFound,
+                        message: $"Mapping rule not found for types '{sourceType}' -> '{targetType}'"
+                    );
+                }
+                return rule.PropertyMappings;
+            });
+    }
 
     #endregion
 
@@ -150,16 +235,9 @@ public class MapHandlerTests
     string targetType,
     string expectedErrorMessage)
     {
-
         SetupFormatConfigProviderMock();
-        
-        var mapHandler = new MapHandler(
-            _mockMappingRuleProvider.Object,
-            [new DataFormatValidator()],
-            _mockFormatConfigProvider.Object
-        );
 
-        var result = mapHandler.Map(input, sourceType, targetType);
+        var result = _mapHandler.Map(input, sourceType, targetType);
 
         Assert.Multiple(() =>
         {
@@ -178,11 +256,6 @@ public class MapHandlerTests
     string targetType,
     string expectedErrorMessage)
     {
-        _mapHandler = new MapHandler(
-            _mockMappingRuleProvider.Object,
-            [new DataFormatValidator()],
-            _mockFormatConfigProvider.Object);
-
         SetupFormatConfigProviderMock();
         SetupMappingRuleProviderMock(); // ensure property mappings are in place
 
@@ -210,19 +283,21 @@ public class MapHandlerTests
     string targetType,
     JObject expectedMappedData)
     {
-        SetupDefaultMocks(sourceType, targetType);
+        SetupFormatConfigProviderMock();
+        SetupMappingRuleProviderMock(); // ensure property mappings are in place
 
         var result = _mapHandler.Map(input, sourceType, targetType);
-
-        Assert.That(result.Success, Is.True);
-        Assert.That(result.MappedData, Is.Not.Null);
 
         var actualMapped = result.MappedData?.ToString();
         var actualJObject = JObject.Parse(actualMapped);
 
-        Assert.That(JToken.DeepEquals(actualJObject, expectedMappedData), Is.True, "Mapped data does not match expected.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.MappedData, Is.Not.Null);
+            Assert.That(JToken.DeepEquals(actualJObject, expectedMappedData), Is.True, "Mapped data does not match expected.");
+        });
     }
-
 
     [Test, TestCaseSource(typeof(MappingTestCases), nameof(MappingTestCases.MappingRulesMissingCases))]
     public void Map_WhenMappingRulesAreMissing_ReturnsMappingNotFoundError(
@@ -235,15 +310,6 @@ public class MapHandlerTests
         _mockMappingRuleProvider
             .Setup(x => x.GetPropertyMappings(sourceType, targetType))
             .Returns((List<PropertyMapping>?)null!);
-
-        // Validator succeeds (we're not testing validation here)
-        _mockValidator
-            .Setup(v => v.Validate(It.IsAny<JObject>(), It.IsAny<string>(), It.IsAny<string>(), out It.Ref<string?>.IsAny))
-            .Returns((JObject _, string _, string _, out string? error) =>
-            {
-                error = null;
-                return true;
-            });
 
         var result = _mapHandler.Map(input, sourceType, targetType);
 
@@ -267,7 +333,6 @@ public class MapHandlerTests
     JObject mappedOutput,
     string expectedErrorMessage)
     {
-
         SetupFormatConfigProviderMock();
 
         _mockMappingRuleProvider
@@ -290,10 +355,12 @@ public class MapHandlerTests
                 return false;
             });
 
-            var mapHandler = new MapHandler(
+        
+        var mapHandler = new MapHandler(
            _mockMappingRuleProvider.Object,
            [new DataFormatValidator()],
-           _mockFormatConfigProvider.Object
+           _mockFormatConfigProvider.Object,
+           new MappingEngine(_strategies)
            );
 
         var result = mapHandler.Map(input, sourceType, targetType);
@@ -307,4 +374,24 @@ public class MapHandlerTests
         });
     }
     #endregion
+
+
+    [Test, TestCaseSource(typeof(MappingTestCases), nameof(MappingTestCases.MappingSuccessCasesArrayObjectTestCases))]
+    public void Map_WhenInputConsistOfArrayObjectIsSucceSuccessful_ReturnsMappedResult(
+        JObject input,
+        string sourceType,
+        string targetType,
+       JObject output)
+    {
+        SetupFormatConfigProviderMockForArrayObject();
+        SetupMappingRuleProviderMockForArrayObject();
+
+        var result = _mapHandler.Map(input, sourceType, targetType);
+
+        var actualMapped = result.MappedData?.ToString();
+        var actualJObject = JObject.Parse(actualMapped);
+
+        Assert.That(JToken.DeepEquals(actualJObject, output), Is.True, "Mapped result does not match expected structure.");
+    }
+
 }
